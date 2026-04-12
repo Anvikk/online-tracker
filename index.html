@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online Class Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',sans-serif;background:#eef1f8;color:#1a1f35;min-height:100vh;display:flex}
+
+/* ── Sidebar ── */
+.sidebar{width:220px;background:#1a1f35;color:white;display:flex;flex-direction:column;padding:24px 0;min-height:100vh;position:fixed;left:0;top:0;bottom:0;z-index:100}
+.sidebar-logo{padding:0 20px 20px;font-size:17px;font-weight:700;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:12px;line-height:1.3}
+.sidebar-logo span{color:#00c896}
+.nav-item{padding:12px 20px;cursor:pointer;font-size:14px;font-weight:500;display:flex;align-items:center;gap:10px;transition:background .15s;color:rgba(255,255,255,.65)}
+.nav-item:hover{background:rgba(255,255,255,.08);color:white}
+.nav-item.active{background:rgba(0,200,150,.15);color:#00c896;border-right:3px solid #00c896}
+.nav-icon{font-size:15px}
+.sidebar-bottom{margin-top:auto;padding:20px;display:flex;flex-direction:column;gap:8px}
+.btn-save{width:100%;padding:10px;border:none;border-radius:8px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;background:#00c896;color:#1a1f35;transition:background .15s}
+.btn-save:hover{background:#00b085}
+.btn-revert{width:100%;padding:10px;border:none;border-radius:8px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;background:rgba(255,255,255,.08);color:rgba(255,255,255,.65)}
+.btn-revert:hover{background:rgba(255,255,255,.15)}
+.save-status{text-align:center;font-size:11px;color:rgba(255,255,255,.4);min-height:16px}
+
+/* ── Main ── */
+.main{margin-left:220px;flex:1;padding:32px;min-height:100vh}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.page-header{margin-bottom:28px}
+.page-header h1{font-size:26px;font-weight:700;color:#1a1f35}
+.page-header p{font-size:14px;color:#64748b;margin-top:4px}
+
+/* ── Cards ── */
+.card{background:white;border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);margin-bottom:20px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.card-title{font-size:15px;font-weight:600;color:#1a1f35}
+
+/* ── Stats ── */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:white;border-radius:14px;padding:20px 24px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.stat-label{font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+.stat-value{font-size:28px;font-weight:700;color:#1a1f35;margin-top:6px}
+.stat-value.green{color:#00c896}
+.stat-value.red{color:#ef4444}
+
+/* ── Buttons ── */
+.btn{padding:9px 18px;border:none;border-radius:8px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;transition:all .15s}
+.btn-primary{background:#1a1f35;color:white}
+.btn-primary:hover{background:#2d3555}
+.btn-accent{background:#00c896;color:#1a1f35}
+.btn-accent:hover{background:#00b085}
+.btn-danger{background:#fee2e2;color:#ef4444}
+.btn-danger:hover{background:#fecaca}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-muted{background:#f1f5f9;color:#64748b}
+.btn-muted:hover{background:#e2e8f0}
+
+/* ── Forms ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group.full{grid-column:1/-1}
+.form-group label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select{padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Outfit',sans-serif;font-size:14px;color:#1a1f35;outline:none;transition:border-color .15s;background:#f8fafc}
+.form-group input:focus,.form-group select:focus{border-color:#00c896;background:white}
+.form-actions{margin-top:20px;display:flex;gap:10px}
+.add-panel{display:none;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:20px}
+.add-panel.open{display:block}
+
+/* ── Table ── */
+.class-table{width:100%;border-collapse:collapse}
+.class-table th{text-align:left;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;border-bottom:1.5px solid #f1f5f9}
+.class-table td{padding:12px;font-size:13.5px;border-bottom:1px solid #f8fafc;color:#374151;vertical-align:middle}
+.class-table tr:last-child td{border-bottom:none}
+.class-table tr:hover td{background:#fafbff}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.badge-teacher{background:#dbeafe;color:#1d4ed8}
+.badge-assistant{background:#fef3c7;color:#d97706}
+
+/* ── Staff ── */
+.staff-list{display:flex;flex-direction:column;gap:10px}
+.staff-item{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0}
+.staff-item .staff-name{flex:1;font-weight:600;font-size:14px}
+.staff-item .staff-rate{font-size:13px;color:#64748b;font-weight:500}
+
+/* ── Filters ── */
+.filter-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.filter-btn{padding:7px 16px;border:1.5px solid #e2e8f0;background:white;border-radius:20px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:500;cursor:pointer;color:#64748b;transition:all .15s}
+.filter-btn.active{border-color:#1a1f35;background:#1a1f35;color:white}
+.filter-btn:hover:not(.active){border-color:#94a3b8}
+
+/* ── Password overlay ── */
+.overlay{position:fixed;inset:0;background:rgba(15,20,40,.75);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)}
+.overlay.hidden{display:none}
+.pw-box{background:white;border-radius:16px;padding:36px 32px;width:320px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.3)}
+.pw-box h2{font-size:20px;font-weight:700;margin-bottom:6px}
+.pw-box p{font-size:13px;color:#64748b;margin-bottom:20px}
+.pw-input{width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:20px;text-align:center;letter-spacing:5px;font-family:'Outfit',sans-serif;outline:none;margin-bottom:10px;transition:border-color .15s}
+.pw-input:focus{border-color:#00c896}
+.pw-error{color:#ef4444;font-size:13px;min-height:18px;margin-bottom:10px}
+
+/* ── Mobile ── */
+.mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;height:56px;background:#1a1f35;align-items:center;justify-content:space-between;padding:0 16px;z-index:200}
+.hamburger{background:none;border:none;color:white;font-size:22px;cursor:pointer;padding:4px}
+.mobile-logo{color:white;font-weight:700;font-size:16px}
+.mobile-logo span{color:#00c896}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150}
+.sidebar-overlay.visible{display:block}
+.mobile-bottom-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#1a1f35;padding:10px 16px;flex-direction:column;gap:6px;z-index:200}
+.mobile-status{color:rgba(255,255,255,.45);font-size:11px;text-align:center}
+.mobile-btn-row{display:flex;gap:8px}
+.empty-state{text-align:center;padding:48px 20px;color:#94a3b8}
+.empty-icon{font-size:36px;margin-bottom:10px}
+
+@media(max-width:768px){
+  .mobile-topbar{display:flex}
+  .mobile-bottom-bar{display:flex}
+  .sidebar{position:fixed;left:-240px;transition:left .25s ease;top:0;bottom:0;z-index:300;width:240px}
+  .sidebar.open{left:0}
+  .main{margin-left:0;padding:16px;padding-top:72px;padding-bottom:108px}
+  .stats-row{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  .class-table{display:none}
+  .mobile-cards{display:block}
+}
+@media(min-width:769px){.mobile-cards{display:none}}
+</style>
+</head>
+<body>
+
+<!-- Password overlay -->
+<div class="overlay hidden" id="pwOverlay">
+  <div class="pw-box">
+    <div style="font-size:36px;margin-bottom:12px">🔒</div>
+    <h2>Password Required</h2>
+    <p id="pwTabName">Enter password to continue</p>
+    <input type="password" class="pw-input" id="pwInput" placeholder="••••••••" maxlength="20">
+    <div class="pw-error" id="pwError"></div>
+    <button class="btn btn-primary" style="width:100%;padding:12px;font-size:14px" onclick="checkPassword()">Unlock</button>
+  </div>
+</div>
+
+<!-- Mobile top bar -->
+<div class="mobile-topbar">
+  <button class="hamburger" onclick="toggleSidebar()">☰</button>
+  <div class="mobile-logo">Online <span>Tracker</span></div>
+  <div style="width:32px"></div>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-logo">Online<br><span>Class Tracker</span></div>
+  <div class="nav-item active" id="nav-classes" onclick="showTab('classes')">
+    <span class="nav-icon">📚</span> Classes
+  </div>
+  <div class="nav-item" id="nav-staff" onclick="showTab('staff')">
+    <span class="nav-icon">👥</span> Staff & Rates
+  </div>
+  <div class="nav-item" id="nav-earnings" onclick="showTab('earnings')">
+    <span class="nav-icon">💰</span> Earnings
+  </div>
+  <div class="sidebar-bottom">
+    <div class="save-status" id="saveStatus"></div>
+    <button class="btn-save" onclick="saveAll()">💾 Save changes</button>
+    <button class="btn-revert" onclick="revertAll()">↩ Revert</button>
+  </div>
+</div>
+
+<!-- Mobile bottom bar -->
+<div class="mobile-bottom-bar">
+  <div class="mobile-status" id="mobileStatus"></div>
+  <div class="mobile-btn-row">
+    <button class="btn-save" style="flex:1" onclick="saveAll()">💾 Save</button>
+    <button class="btn-revert" style="flex:1" onclick="revertAll()">↩ Revert</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- ════ CLASSES TAB ════ -->
+  <div class="tab-content active" id="tab-classes">
+    <div class="page-header">
+      <h1>Classes</h1>
+      <p>Log and review your online teaching sessions</p>
+    </div>
+
+    <div class="add-panel" id="addClassPanel">
+      <div class="card-title" style="margin-bottom:16px">➕ New Class Session</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="classDate">
+        </div>
+        <div class="form-group">
+          <label>Duration (hours)</label>
+          <input type="number" id="classDuration" min="0.25" step="0.25" placeholder="e.g. 1.5">
+        </div>
+        <div class="form-group">
+          <label>Teacher</label>
+          <select id="classTeacher">
+            <option value="">— Select teacher —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Assistant (optional)</label>
+          <select id="classAssistant">
+            <option value="">— None —</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Notes (optional)</label>
+          <input type="text" id="classNotes" placeholder="e.g. student name, topic covered…">
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:10px 14px;background:#f0fdf9;border-radius:8px;font-size:13px;color:#065f46" id="revenuePreview"></div>
+      <div class="form-actions">
+        <button class="btn btn-accent" onclick="addClass()">Add Class</button>
+        <button class="btn btn-muted" onclick="closeAddPanel()">Cancel</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Class Log</div>
+        <button class="btn btn-primary" onclick="openAddPanel()">+ Add Class</button>
+      </div>
+      <table class="class-table">
+        <thead>
+          <tr>
+            <th>Date</th><th>Teacher</th><th>Assistant</th><th>Hours</th>
+            <th>Revenue</th><th>Cost</th><th>Profit</th><th>Notes</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="classTableBody"></tbody>
+      </table>
+      <div class="mobile-cards" id="classMobileCards"></div>
+    </div>
+  </div>
+
+  <!-- ════ STAFF TAB ════ -->
+  <div class="tab-content" id="tab-staff">
+    <div class="page-header">
+      <h1>Staff & Rates</h1>
+      <p>Manage your team and configure hourly rates</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px">🎓 Student Rate</div>
+      <p style="font-size:13px;color:#64748b;margin-bottom:14px">Revenue per class = duration × this rate</p>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+        <div class="form-group" style="min-width:200px">
+          <label>Rate (¥ per hour)</label>
+          <input type="number" id="studentRateInput" min="0" step="1" placeholder="e.g. 300">
+        </div>
+        <button class="btn btn-accent" style="margin-bottom:2px" onclick="saveStudentRate()">Save Rate</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">👨‍🏫 Teachers</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddStaff('teacher')">+ Add</button>
+      </div>
+      <div class="add-panel" id="addTeacherPanel">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="teacherName" placeholder="Teacher's name">
+          </div>
+          <div class="form-group">
+            <label>Hourly Rate (¥)</label>
+            <input type="number" id="teacherRate" min="0" step="1" placeholder="e.g. 150">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-accent" onclick="addStaff('teacher')">Add Teacher</button>
+          <button class="btn btn-muted" onclick="closeAddStaff('teacher')">Cancel</button>
+        </div>
+      </div>
+      <div class="staff-list" id="teacherList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🧑‍💼 Assistants</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddStaff('assistant')">+ Add</button>
+      </div>
+      <div class="add-panel" id="addAssistantPanel">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="assistantName" placeholder="Assistant's name">
+          </div>
+          <div class="form-group">
+            <label>Hourly Rate (¥)</label>
+            <input type="number" id="assistantRate" min="0" step="1" placeholder="e.g. 80">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-accent" onclick="addStaff('assistant')">Add Assistant</button>
+          <button class="btn btn-muted" onclick="closeAddStaff('assistant')">Cancel</button>
+        </div>
+      </div>
+      <div class="staff-list" id="assistantList"></div>
+    </div>
+  </div>
+
+  <!-- ════ EARNINGS TAB ════ -->
+  <div class="tab-content" id="tab-earnings">
+    <div class="page-header">
+      <h1>Earnings</h1>
+      <p>Revenue, costs and net profit overview</p>
+    </div>
+
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="setFilter('all',this)">All time</button>
+      <button class="filter-btn" onclick="setFilter('thisMonth',this)">This month</button>
+      <button class="filter-btn" onclick="setFilter('lastMonth',this)">Last month</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Revenue</div>
+        <div class="stat-value" id="statRevenue">¥0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Costs</div>
+        <div class="stat-value red" id="statCosts">¥0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Net Profit</div>
+        <div class="stat-value green" id="statProfit">¥0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Class Breakdown</div>
+        <div style="font-size:13px;color:#64748b" id="earningsCount"></div>
+      </div>
+      <table class="class-table">
+        <thead>
+          <tr>
+            <th>Date</th><th>Teacher</th><th>Hours</th>
+            <th>Revenue</th><th>Cost</th><th>Profit</th>
+          </tr>
+        </thead>
+        <tbody id="earningsTableBody"></tbody>
+      </table>
+      <div class="mobile-cards" id="earningsMobileCards"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ═══════════════════════════════════════════
+//  FIREBASE CONFIG — replace all placeholders
+// ═══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyDTiO0dhrN2ljJoCJ4y5QUOmYVXCpTu9xk",
+  authDomain:        "online-tracker-5dd94.firebaseapp.com",
+  databaseURL:       "https://online-tracker-5dd94-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "online-tracker-5dd94",
+  storageBucket:     "online-tracker-5dd94.firebasestorage.app",
+  messagingSenderId: "198479635003",
+  appId:             "1:198479635003:web:a0e4838fd4beed60bdb21e"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ═══════════════════════════════════════════
+//  EMAILJS CONFIG — replace all placeholders
+// ═══════════════════════════════════════════
+const EMAILJS_SERVICE_ID  = "PASTE_YOUR_SERVICE_ID";
+const EMAILJS_TEMPLATE_ID = "PASTE_YOUR_TEMPLATE_ID";
+const EMAILJS_PUBLIC_KEY  = "PASTE_YOUR_PUBLIC_KEY";
+const REPORT_EMAIL        = "petrpesekpesek@gmail.com";
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
+// ═══════════════════════════════════
+//  PASSWORD
+// ═══════════════════════════════════
+const PASSWORD = "29944348";
+let pendingTab = null;
+
+function showTab(tab) {
+  pendingTab = tab;
+  document.getElementById('pwInput').value = '';
+  document.getElementById('pwError').textContent = '';
+  const labels = { classes:'Classes', staff:'Staff & Rates', earnings:'Earnings' };
+  document.getElementById('pwTabName').textContent = `Enter password to access ${labels[tab]}`;
+  document.getElementById('pwOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('pwInput').focus(), 80);
+}
+
+function checkPassword() {
+  if (document.getElementById('pwInput').value === PASSWORD) {
+    document.getElementById('pwOverlay').classList.add('hidden');
+    activateTab(pendingTab);
+  } else {
+    document.getElementById('pwError').textContent = 'Incorrect password';
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwInput').focus();
+  }
+}
+document.getElementById('pwInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkPassword();
+  if (e.key === 'Escape') document.getElementById('pwOverlay').classList.add('hidden');
+});
+
+function activateTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('nav-' + tab).classList.add('active');
+  if (tab === 'staff')    renderStaff();
+  if (tab === 'earnings') renderEarnings();
+  closeSidebar();
+}
+
+// ═══════════════════════════════════
+//  STATE
+// ═══════════════════════════════════
+let state = {
+  classes:  {},
+  staff:    {},
+  settings: { studentRate: 0, lastWeeklyEmail: '', lastMonthlyEmail: '' }
+};
+let earningsFilter = 'all';
+let listenerOn = false;
+
+// ═══════════════════════════════════
+//  FIREBASE
+// ═══════════════════════════════════
+function loadState() {
+  if (listenerOn) return;
+  listenerOn = true;
+  db.ref('/').on('value', snap => {
+    const d = snap.val() || {};
+    state.classes  = d.classes  || {};
+    state.staff    = d.staff    || {};
+    state.settings = Object.assign({ studentRate:0, lastWeeklyEmail:'', lastMonthlyEmail:'' }, d.settings || {});
+    renderAll();
+    document.getElementById('studentRateInput').value = state.settings.studentRate || '';
+    checkScheduledEmails();
+  });
+}
+
+function saveAll() {
+  db.ref('/').set(state)
+    .then(()  => showStatus('Saved ✓'))
+    .catch(() => showStatus('Save failed ✗'));
+}
+
+function revertAll() {
+  if (!confirm('Discard all unsaved changes and reload from Firebase?')) return;
+  db.ref('/').once('value', snap => {
+    const d = snap.val() || {};
+    state.classes  = d.classes  || {};
+    state.staff    = d.staff    || {};
+    state.settings = Object.assign({ studentRate:0, lastWeeklyEmail:'', lastMonthlyEmail:'' }, d.settings || {});
+    renderAll();
+    document.getElementById('studentRateInput').value = state.settings.studentRate || '';
+    showStatus('Reverted ✓');
+  });
+}
+
+function renderAll() {
+  renderClasses();
+  renderStaff();
+  renderEarnings();
+  populateDropdowns();
+}
+
+function showStatus(msg) {
+  ['saveStatus','mobileStatus'].forEach(id => document.getElementById(id).textContent = msg);
+  setTimeout(() => ['saveStatus','mobileStatus'].forEach(id => document.getElementById(id).textContent = ''), 3000);
+}
+
+// ═══════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════
+const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const fmt  = n  => '¥' + Math.round(n).toLocaleString();
+const getS = id => state.staff[id] || null;
+
+function calcClass(cls) {
+  const dur = parseFloat(cls.duration) || 0;
+  const rev  = dur * (state.settings.studentRate || 0);
+  const t    = getS(cls.teacherId);
+  const a    = getS(cls.assistantId);
+  const cost = (t ? dur * (parseFloat(t.rate) || 0) : 0)
+             + (a ? dur * (parseFloat(a.rate) || 0) : 0);
+  return { revenue: rev, cost, profit: rev - cost };
+}
+
+// ═══════════════════════════════════
+//  CLASSES
+// ═══════════════════════════════════
+function openAddPanel() {
+  document.getElementById('addClassPanel').classList.add('open');
+  document.getElementById('classDate').value = new Date().toISOString().split('T')[0];
+  populateDropdowns();
+  updatePreview();
+}
+function closeAddPanel() { document.getElementById('addClassPanel').classList.remove('open'); }
+
+function populateDropdowns() {
+  const tSel = document.getElementById('classTeacher');
+  const aSel = document.getElementById('classAssistant');
+  const tv = tSel.value, av = aSel.value;
+  const teachers   = Object.entries(state.staff).filter(([,s]) => s.role === 'teacher');
+  const assistants = Object.entries(state.staff).filter(([,s]) => s.role === 'assistant');
+  tSel.innerHTML = '<option value="">— Select teacher —</option>'
+    + teachers.map(([id,s]) => `<option value="${id}" ${id===tv?'selected':''}>${s.name} (¥${s.rate}/h)</option>`).join('');
+  aSel.innerHTML = '<option value="">— None —</option>'
+    + assistants.map(([id,s]) => `<option value="${id}" ${id===av?'selected':''}>${s.name} (¥${s.rate}/h)</option>`).join('');
+}
+
+function updatePreview() {
+  const dur = parseFloat(document.getElementById('classDuration').value) || 0;
+  const tId = document.getElementById('classTeacher').value;
+  const aId = document.getElementById('classAssistant').value;
+  const rate = state.settings.studentRate || 0;
+  const rev  = dur * rate;
+  const t = getS(tId), a = getS(aId);
+  const cost = (t ? dur*(parseFloat(t.rate)||0) : 0) + (a ? dur*(parseFloat(a.rate)||0) : 0);
+  const profit = rev - cost;
+  const p = document.getElementById('revenuePreview');
+  if (dur > 0 && rate > 0) {
+    p.style.display = 'block';
+    p.textContent = `Preview: Revenue ${fmt(rev)} · Cost ${fmt(cost)} · Profit ${fmt(profit)}`;
+  } else {
+    p.style.display = 'none';
+  }
+}
+
+['classDuration','classTeacher','classAssistant'].forEach(id =>
+  document.getElementById(id).addEventListener('change', updatePreview)
+);
+
+function addClass() {
+  const date      = document.getElementById('classDate').value;
+  const duration  = parseFloat(document.getElementById('classDuration').value);
+  const teacherId = document.getElementById('classTeacher').value;
+  const assistantId = document.getElementById('classAssistant').value;
+  const notes     = document.getElementById('classNotes').value.trim();
+  if (!date || !duration || !teacherId) { alert('Please fill in date, duration and teacher.'); return; }
+  state.classes[uid()] = { date, duration, teacherId, assistantId: assistantId || '', notes };
+  renderClasses(); renderEarnings(); closeAddPanel();
+  ['classDuration','classNotes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('classTeacher').value = '';
+  document.getElementById('classAssistant').value = '';
+  document.getElementById('revenuePreview').style.display = 'none';
+}
+
+function deleteClass(id) {
+  if (!confirm('Delete this class?')) return;
+  delete state.classes[id];
+  renderClasses(); renderEarnings();
+}
+
+function renderClasses() {
+  const sorted = Object.entries(state.classes).sort((a,b) => b[1].date.localeCompare(a[1].date));
+  const tbody  = document.getElementById('classTableBody');
+  const mobile = document.getElementById('classMobileCards');
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📋</div>No classes logged yet — click "+ Add Class" to start.</div></td></tr>`;
+    mobile.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div>No classes yet.</div>`;
+    return;
+  }
+  tbody.innerHTML = sorted.map(([id,cls]) => {
+    const t = getS(cls.teacherId), a = getS(cls.assistantId);
+    const { revenue, cost, profit } = calcClass(cls);
+    return `<tr>
+      <td>${cls.date}</td>
+      <td>${t ? `<span class="badge badge-teacher">${t.name}</span>` : '—'}</td>
+      <td>${a ? `<span class="badge badge-assistant">${a.name}</span>` : '—'}</td>
+      <td>${cls.duration}h</td>
+      <td>${fmt(revenue)}</td>
+      <td style="color:#ef4444">${fmt(cost)}</td>
+      <td style="color:#00c896;font-weight:600">${fmt(profit)}</td>
+      <td style="color:#94a3b8;font-size:13px">${cls.notes || '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteClass('${id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+  mobile.innerHTML = sorted.map(([id,cls]) => {
+    const t = getS(cls.teacherId), a = getS(cls.assistantId);
+    const { revenue, cost, profit } = calcClass(cls);
+    return `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong>${cls.date}</strong>
+        <button class="btn btn-danger btn-sm" onclick="deleteClass('${id}')">✕</button>
+      </div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:8px">
+        ${t ? t.name : '?'}${a ? ' + '+a.name : ''} &nbsp;·&nbsp; ${cls.duration}h
+      </div>
+      <div style="display:flex;gap:14px;font-size:13px;flex-wrap:wrap">
+        <span>Rev: <strong>${fmt(revenue)}</strong></span>
+        <span>Cost: <strong style="color:#ef4444">${fmt(cost)}</strong></span>
+        <span>Net: <strong style="color:#00c896">${fmt(profit)}</strong></span>
+      </div>
+      ${cls.notes ? `<div style="font-size:12px;color:#94a3b8;margin-top:6px">${cls.notes}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════
+//  STAFF
+// ═══════════════════════════════════
+function openAddStaff(role) {
+  const key = role.charAt(0).toUpperCase() + role.slice(1);
+  document.getElementById(`add${key}Panel`).classList.add('open');
+}
+function closeAddStaff(role) {
+  const key = role.charAt(0).toUpperCase() + role.slice(1);
+  document.getElementById(`add${key}Panel`).classList.remove('open');
+}
+
+function addStaff(role) {
+  const name = document.getElementById(role+'Name').value.trim();
+  const rate = parseFloat(document.getElementById(role+'Rate').value);
+  if (!name || isNaN(rate)) { alert('Please fill in name and hourly rate.'); return; }
+  state.staff[uid()] = { name, role, rate };
+  renderStaff(); populateDropdowns(); closeAddStaff(role);
+  document.getElementById(role+'Name').value = '';
+  document.getElementById(role+'Rate').value = '';
+}
+
+function deleteStaff(id) {
+  if (!confirm('Remove this person from the team?')) return;
+  delete state.staff[id];
+  renderStaff(); populateDropdowns(); renderClasses(); renderEarnings();
+}
+
+function saveStudentRate() {
+  const r = parseFloat(document.getElementById('studentRateInput').value);
+  if (isNaN(r) || r < 0) { alert('Please enter a valid rate.'); return; }
+  state.settings.studentRate = r;
+  renderClasses(); renderEarnings();
+  showStatus('Rate saved ✓');
+}
+
+function renderStaff() {
+  const teachers   = Object.entries(state.staff).filter(([,s]) => s.role === 'teacher');
+  const assistants = Object.entries(state.staff).filter(([,s]) => s.role === 'assistant');
+  document.getElementById('teacherList').innerHTML = !teachers.length
+    ? `<div style="color:#94a3b8;font-size:14px;padding:12px">No teachers added yet.</div>`
+    : teachers.map(([id,s]) => `
+        <div class="staff-item">
+          <span class="staff-name">${s.name}</span>
+          <span class="staff-rate">¥${s.rate}/hr</span>
+          <button class="btn btn-danger btn-sm" onclick="deleteStaff('${id}')">Remove</button>
+        </div>`).join('');
+  document.getElementById('assistantList').innerHTML = !assistants.length
+    ? `<div style="color:#94a3b8;font-size:14px;padding:12px">No assistants added yet.</div>`
+    : assistants.map(([id,s]) => `
+        <div class="staff-item">
+          <span class="staff-name">${s.name}</span>
+          <span class="staff-rate">¥${s.rate}/hr</span>
+          <button class="btn btn-danger btn-sm" onclick="deleteStaff('${id}')">Remove</button>
+        </div>`).join('');
+}
+
+// ═══════════════════════════════════
+//  EARNINGS
+// ═══════════════════════════════════
+function setFilter(f, btn) {
+  earningsFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderEarnings();
+}
+
+function filteredClasses() {
+  const now = new Date();
+  const thisM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const lm    = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const lastM = `${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}`;
+  return Object.entries(state.classes)
+    .filter(([,cls]) => {
+      if (earningsFilter === 'thisMonth') return cls.date.startsWith(thisM);
+      if (earningsFilter === 'lastMonth') return cls.date.startsWith(lastM);
+      return true;
+    })
+    .sort((a,b) => b[1].date.localeCompare(a[1].date));
+}
+
+function renderEarnings() {
+  const classes = filteredClasses();
+  let totalRev = 0, totalCost = 0;
+  classes.forEach(([,cls]) => { const c = calcClass(cls); totalRev += c.revenue; totalCost += c.cost; });
+  const profit = totalRev - totalCost;
+
+  document.getElementById('statRevenue').textContent = fmt(totalRev);
+  document.getElementById('statCosts').textContent   = fmt(totalCost);
+  document.getElementById('statProfit').textContent  = fmt(profit);
+  document.getElementById('statProfit').className    = 'stat-value ' + (profit >= 0 ? 'green' : 'red');
+  document.getElementById('earningsCount').textContent = `${classes.length} class${classes.length !== 1 ? 'es' : ''}`;
+
+  const tbody  = document.getElementById('earningsTableBody');
+  const mobile = document.getElementById('earningsMobileCards');
+  if (!classes.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📊</div>No classes in this period.</div></td></tr>`;
+    mobile.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div>No classes in this period.</div>`;
+    return;
+  }
+  tbody.innerHTML = classes.map(([,cls]) => {
+    const t = getS(cls.teacherId);
+    const { revenue, cost, profit: p } = calcClass(cls);
+    return `<tr>
+      <td>${cls.date}</td>
+      <td>${t ? t.name : '—'}</td>
+      <td>${cls.duration}h</td>
+      <td>${fmt(revenue)}</td>
+      <td style="color:#ef4444">${fmt(cost)}</td>
+      <td style="color:${p>=0?'#00c896':'#ef4444'};font-weight:600">${fmt(p)}</td>
+    </tr>`;
+  }).join('');
+  mobile.innerHTML = classes.map(([,cls]) => {
+    const t = getS(cls.teacherId);
+    const { revenue, cost, profit: p } = calcClass(cls);
+    return `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <strong>${cls.date}</strong>
+        <span style="color:#64748b;font-size:13px">${t ? t.name : '—'} · ${cls.duration}h</span>
+      </div>
+      <div style="display:flex;gap:14px;font-size:13px;flex-wrap:wrap">
+        <span>Rev: <strong>${fmt(revenue)}</strong></span>
+        <span>Cost: <strong style="color:#ef4444">${fmt(cost)}</strong></span>
+        <span>Net: <strong style="color:${p>=0?'#00c896':'#ef4444'}">${fmt(p)}</strong></span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════
+//  EMAIL REPORTS
+// ═══════════════════════════════════
+function weekNum(d) {
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  dt.setUTCDate(dt.getUTCDate() + 4 - (dt.getUTCDay() || 7));
+  const y0 = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  return Math.ceil((((dt - y0) / 86400000) + 1) / 7);
+}
+
+function checkScheduledEmails() {
+  const now  = new Date();
+  const wKey = `${now.getFullYear()}-W${weekNum(now)}`;
+  const mKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  if (now.getDay() === 1 && state.settings.lastWeeklyEmail !== wKey)   sendReport('weekly',  wKey);
+  if (now.getDate() === 1 && state.settings.lastMonthlyEmail !== mKey) sendReport('monthly', mKey);
+}
+
+function buildReport(label, classes) {
+  let rev = 0, cost = 0, hrs = 0;
+  classes.forEach(([,cls]) => { const c = calcClass(cls); rev += c.revenue; cost += c.cost; hrs += parseFloat(cls.duration)||0; });
+  const lines = [
+    `Online Class Tracker — ${label}`,
+    ``,
+    `SUMMARY`,
+    `Classes: ${classes.length}`,
+    `Hours:   ${hrs}`,
+    `Revenue: ¥${Math.round(rev).toLocaleString()}`,
+    `Costs:   ¥${Math.round(cost).toLocaleString()}`,
+    `Profit:  ¥${Math.round(rev-cost).toLocaleString()}`,
+    ``,
+    `CLASSES`,
+    ...classes.map(([,cls]) => {
+      const t = getS(cls.teacherId), a = getS(cls.assistantId);
+      const { profit: p } = calcClass(cls);
+      return `${cls.date} · ${t?t.name:'?'}${a?' + '+a.name:''} · ${cls.duration}h · ${fmt(p)} profit`;
+    })
+  ];
+  return lines.join('\n');
+}
+
+function sendReport(type, key) {
+  const now = new Date();
+  let classes, label;
+  if (type === 'weekly') {
+    const from = new Date(now); from.setDate(from.getDate() - 7);
+    classes = Object.entries(state.classes).filter(([,c]) => new Date(c.date) >= from);
+    label = `Weekly (${from.toLocaleDateString()} – ${now.toLocaleDateString()})`;
+  } else {
+    const lm  = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const lmS = `${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}`;
+    classes = Object.entries(state.classes).filter(([,c]) => c.date.startsWith(lmS));
+    label = `Monthly (${lm.toLocaleString('default',{month:'long',year:'numeric'})})`;
+  }
+  emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+    to_email: REPORT_EMAIL,
+    subject:  `Online Tracker — ${label} Report`,
+    message:  buildReport(label, classes)
+  }).then(() => {
+    if (type === 'weekly') state.settings.lastWeeklyEmail = key;
+    else                   state.settings.lastMonthlyEmail = key;
+    saveAll();
+  }).catch(e => console.log('Email failed:', e));
+}
+
+// ═══════════════════════════════════
+//  MOBILE SIDEBAR
+// ═══════════════════════════════════
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('visible');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('visible');
+}
+
+// ═══════════════════════════════════
+//  INIT
+// ═══════════════════════════════════
+window.onload = () => {
+  loadState();
+  pendingTab = 'classes';
+  document.getElementById('pwTabName').textContent = 'Enter password to access the tracker';
+  document.getElementById('pwOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('pwInput').focus(), 80);
+};
+</script>
+</body>
+</html>
