@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online Class Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<style>
+:root{
+  --bg:#f7f6f3;--surface:#fff;--surface2:#f0efe9;--border:#e2e0d8;--border2:#d0cec4;
+  --text:#1c1b18;--text2:#6b6860;--text3:#9e9c96;
+  --accent:#2d5be3;--accent-bg:#eef1fc;--accent-text:#1a3baa;
+  --green:#1a7a4a;--green-bg:#e8f5ee;--red:#c0392b;--red-bg:#fdecea;
+  --radius:10px;--radius-sm:6px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+.app-shell{display:flex;min-height:100vh}
+
+/* ── Sidebar ── */
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);padding:24px 16px;flex-shrink:0;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;overflow-y:auto}
+.logo{font-size:15px;font-weight:600;color:var(--text);margin-bottom:32px;padding:0 8px;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.nav-item{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);font-size:13px;font-weight:500;margin-bottom:2px;transition:all .15s;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-bg);color:var(--accent-text)}
+.nav-divider{height:1px;background:var(--border);margin:12px 0}
+.sidebar-bottom{margin-top:auto;padding-top:16px}
+.save-btn{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.save-btn:hover{opacity:.88}
+.revert-btn{width:100%;padding:8px;background:none;color:var(--text3);border:1px solid var(--border2);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;margin-top:6px}
+.revert-btn:hover{background:var(--red-bg);color:var(--red);border-color:#f5c0bb}
+.save-status{font-size:12px;color:var(--text3);text-align:center;margin-top:8px;min-height:16px}
+
+/* ── Main ── */
+.main{flex:1;padding:28px 32px;overflow-y:auto}
+.page{display:none}.page.active{display:block}
+.page-header{margin-bottom:24px}
+.page-title{font-size:22px;font-weight:600}
+.page-sub{font-size:13px;color:var(--text2);margin-top:4px}
+
+/* ── Buttons ── */
+.btn{padding:7px 14px;font-size:12px;font-weight:500;border-radius:var(--radius-sm);cursor:pointer;font-family:'DM Sans',sans-serif;border:1px solid var(--border2);background:var(--surface);color:var(--text2);transition:all .12s}
+.btn:hover{background:var(--surface2);color:var(--text)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.btn-primary:hover{opacity:.88;background:var(--accent);color:#fff}
+.btn-danger{color:var(--red);border-color:#f5c0bb}
+.btn-danger:hover{background:var(--red-bg);color:var(--red)}
+.btn-ghost{border:none;background:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;padding:4px 8px}
+.btn-ghost:hover{color:var(--red)}
+
+/* ── Slot cards (Classes tab) ── */
+.day-group{margin-bottom:24px}
+.day-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px;padding-left:4px}
+.slot-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;box-shadow:var(--shadow)}
+.slot-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;transition:background .12s}
+.slot-header:hover{background:var(--surface2)}
+.slot-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex:1;min-width:0}
+.slot-time{font-size:14px;font-weight:600;font-family:'DM Mono',monospace;flex-shrink:0}
+.slot-student-name{font-size:13px;color:var(--text2)}
+.slot-meta{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:8px}
+.session-count{font-size:11px;background:var(--accent-bg);color:var(--accent-text);border-radius:20px;padding:3px 10px;font-weight:500}
+.chevron{font-size:12px;color:var(--text3);transition:transform .2s}
+.chevron.open{transform:rotate(180deg)}
+.slot-body{display:none;border-top:1px solid var(--border);padding:16px;background:#fafaf8}
+.slot-body.open{display:block}
+
+/* Slot config */
+.slot-config{margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px}
+.slot-config-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:10px}
+.slot-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.field-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:5px}
+.field-select,.field-input{width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif}
+.field-select:focus,.field-input:focus{outline:none;border-color:var(--accent)}
+input[type=date].field-input{font-family:'DM Mono',monospace}
+
+/* Session cards */
+.btn-add-session{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;border:1.5px dashed var(--border2);border-radius:var(--radius-sm);font-size:13px;color:var(--text3);background:none;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:10px;transition:all .15s}
+.btn-add-session:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.sessions-list{display:flex;flex-direction:column;gap:10px}
+.session-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px}
+.session-top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;margin-bottom:12px}
+.session-footer{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border);margin-top:10px}
+
+/* Revenue preview in session */
+.rev-preview{background:var(--green-bg);border:1px solid #a8dfc0;border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--green);margin-top:8px;display:flex;gap:16px}
+.rev-preview span{font-weight:600}
+
+/* ── Schedule tab table ── */
+.schedule-table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:12px}
+.schedule-table th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface2)}
+.schedule-table td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.schedule-table tr:last-child td{border-bottom:none}
+
+/* ── Data table (earnings) ── */
+.data-table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow)}
+.data-table th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface2)}
+.data-table td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--surface2)}
+
+/* ── Metrics ── */
+.metrics-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow)}
+.metric-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:6px}
+.metric-value{font-size:26px;font-weight:600;font-family:'DM Mono',monospace}
+.metric-value.green{color:var(--green)}
+.metric-value.red{color:var(--red)}
+
+/* ── Period switcher ── */
+.period-switcher{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.period-btn{padding:6px 16px;font-size:13px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .12s}
+.period-btn.active{background:var(--text);color:#fff;border-color:var(--text)}
+
+/* ── Staff/Students cards ── */
+.staff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px}
+.staff-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px}
+.staff-avatar{width:34px;height:34px;border-radius:50%;background:var(--accent-bg);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
+.staff-info{flex:1;min-width:0}
+.staff-name{font-size:13px;font-weight:600}
+.staff-rate{font-size:12px;color:var(--text2)}
+.staff-actions{display:flex;gap:4px}
+
+/* ── Formula note ── */
+.formula-note{font-size:13px;color:var(--accent-text);background:var(--accent-bg);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:20px;border-left:3px solid var(--accent)}
+
+/* ── Inline add form ── */
+.add-panel{display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.add-panel.open{display:block}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-actions{margin-top:12px;display:flex;gap:8px}
+
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--surface);border-radius:var(--radius);padding:28px;width:400px;max-width:92vw;box-shadow:var(--shadow-md);border:1px solid var(--border)}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:16px}
+.form-field{margin-bottom:12px}
+.form-field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px}
+.form-field input,.form-field select{width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:14px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)}
+.form-field input:focus,.form-field select:focus{outline:none;border-color:var(--accent)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* ── Password overlay ── */
+.pw-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:flex-start;justify-content:center;padding-top:72px}
+.pw-overlay.open{display:flex}
+.pw-box{background:var(--surface);border-radius:var(--radius);padding:32px;width:320px;box-shadow:var(--shadow-md);border:1px solid var(--border);text-align:center}
+.pw-icon{font-size:32px;margin-bottom:12px}
+.pw-title{font-size:16px;font-weight:600;margin-bottom:6px}
+.pw-sub{font-size:13px;color:var(--text2);margin-bottom:18px}
+.pw-input{width:100%;padding:10px 14px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:18px;font-family:'DM Mono',monospace;text-align:center;letter-spacing:.2em;margin-bottom:10px;background:var(--surface);color:var(--text)}
+.pw-input:focus{outline:none;border-color:var(--accent)}
+.pw-error{font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px}
+
+/* ── Mobile ── */
+.mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;height:52px;background:var(--surface);border-bottom:1px solid var(--border);z-index:200;align-items:center;justify-content:space-between;padding:0 16px;box-shadow:var(--shadow)}
+.mobile-logo{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.hamburger{background:none;border:none;cursor:pointer;padding:6px;border-radius:var(--radius-sm);display:flex;flex-direction:column;gap:5px}
+.hamburger span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300}
+.sidebar-overlay.open{display:block}
+.mobile-bottom-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 16px;gap:8px;z-index:200;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+@media(max-width:640px){
+  .mobile-topbar{display:flex}
+  .mobile-bottom-bar{display:flex}
+  .sidebar{position:fixed;top:0;left:-280px;width:280px;height:100vh;z-index:400;transition:left .25s ease;box-shadow:var(--shadow-md)}
+  .sidebar.open{left:0}
+  .sidebar-bottom{display:none}
+  .main{padding:68px 12px 90px;width:100%}
+  .metrics-row{grid-template-columns:1fr}
+  .slot-fields{grid-template-columns:1fr 1fr}
+  .form-grid-2{grid-template-columns:1fr}
+  .data-table th,.data-table td{padding:8px 10px;font-size:12px}
+  .page-title{font-size:18px}
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div class="mobile-topbar">
+  <button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+  <div class="mobile-logo"><div class="logo-dot"></div>Online Tracker</div>
+  <div style="font-size:12px;color:var(--text3);min-width:40px;text-align:right" id="save-status-mobile"></div>
+</div>
+<div class="mobile-bottom-bar">
+  <button class="save-btn" onclick="saveAll()">💾 Save</button>
+  <button class="revert-btn" onclick="revertAll()">↩ Revert</button>
+</div>
+
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="logo"><div class="logo-dot"></div>Online Tracker</div>
+    <nav>
+      <button class="nav-item active" id="nav-classes"   onclick="showPage('classes',this)">📚 Classes</button>
+      <button class="nav-item"        id="nav-students"  onclick="showPage('students',this)">🎓 Students</button>
+      <button class="nav-item"        id="nav-staff"     onclick="showPage('staff',this)">👥 Staff</button>
+      <button class="nav-item"        id="nav-earnings"  onclick="showPage('earnings',this)">💰 Earnings</button>
+      <div class="nav-divider"></div>
+      <button class="nav-item"        id="nav-schedule"  onclick="showPage('schedule',this)">🗓 Schedule</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="save-btn" onclick="saveAll()">💾 Save changes</button>
+      <button class="revert-btn" onclick="revertAll()">↩ Revert</button>
+      <div class="save-status" id="save-status"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ── CLASSES ── -->
+    <div id="page-classes" class="page active">
+      <div class="page-header">
+        <div class="page-title">Classes</div>
+        <div class="page-sub">Log your online teaching sessions by time slot</div>
+      </div>
+      <div id="classes-root"></div>
+    </div>
+
+    <!-- ── STUDENTS ── -->
+    <div id="page-students" class="page">
+      <div class="page-header">
+        <div class="page-title">Students</div>
+        <div class="page-sub">Manage students and their hourly rates</div>
+      </div>
+      <div class="formula-note">💡 <strong>Profit = Duration × Student Rate − Duration × (Teacher Rate + Assistant Rate)</strong></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;color:var(--text2)">🎓 Students</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddModal('student')">+ Add Student</button>
+      </div>
+      <div class="staff-grid" id="students-root"></div>
+    </div>
+
+    <!-- ── STAFF ── -->
+    <div id="page-staff" class="page">
+      <div class="page-header">
+        <div class="page-title">Staff</div>
+        <div class="page-sub">Manage teachers and assistants with their hourly rates</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;color:var(--text2)">👨‍🏫 Teachers</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddModal('teacher')">+ Add Teacher</button>
+      </div>
+      <div class="staff-grid" id="teachers-root" style="margin-bottom:24px"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;color:var(--text2)">🧑‍💼 Assistants</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddModal('assistant')">+ Add Assistant</button>
+      </div>
+      <div class="staff-grid" id="assistants-root"></div>
+    </div>
+
+    <!-- ── EARNINGS ── -->
+    <div id="page-earnings" class="page">
+      <div class="page-header">
+        <div class="page-title">Earnings</div>
+        <div class="page-sub">Revenue, costs and net profit</div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric-card"><div class="metric-label">Total Revenue</div><div class="metric-value" id="earn-revenue">¥0</div></div>
+        <div class="metric-card"><div class="metric-label">Total Costs</div><div class="metric-value red" id="earn-costs">¥0</div></div>
+        <div class="metric-card"><div class="metric-label">Net Profit</div><div class="metric-value green" id="earn-profit">¥0</div></div>
+      </div>
+      <div class="period-switcher">
+        <button class="period-btn active" onclick="setEarningsPeriod('all',this)">All time</button>
+        <button class="period-btn" onclick="setEarningsPeriod('thisMonth',this)">This month</button>
+        <button class="period-btn" onclick="setEarningsPeriod('lastMonth',this)">Last month</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Student</th><th>Teacher</th><th>Hours</th><th>Revenue</th><th>Cost</th><th>Profit</th></tr></thead>
+        <tbody id="earnings-body"></tbody>
+      </table>
+    </div>
+
+    <!-- ── SCHEDULE ── -->
+    <div id="page-schedule" class="page">
+      <div class="page-header">
+        <div class="page-title">Schedule</div>
+        <div class="page-sub">Add, edit or remove time slots — each slot links to a student, teacher and assistant</div>
+      </div>
+      <table class="schedule-table">
+        <thead><tr><th>Day</th><th>Time</th><th>Student</th><th>Teacher</th><th>Assistant</th><th>Actions</th></tr></thead>
+        <tbody id="schedule-body"></tbody>
+      </table>
+      <button class="btn" onclick="openSlotModal(null)">+ Add time slot</button>
+    </div>
+
+  </main>
+</div>
+
+<!-- Password overlay -->
+<div class="pw-overlay open" id="pw-overlay">
+  <div class="pw-box">
+    <div class="pw-icon">🔒</div>
+    <div class="pw-title">Online Class Tracker</div>
+    <div class="pw-sub">Enter password to continue</div>
+    <input type="password" class="pw-input" id="pw-input" placeholder="••••••" onkeydown="if(event.key==='Enter')checkPassword()">
+    <div class="pw-error" id="pw-error"></div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="checkPassword()">Unlock</button>
+  </div>
+</div>
+
+<!-- Generic modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<script>
+// ── Firebase ──────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyDTiO0dhrN2ljJoCJ4y5QUOmYVXCpTu9xk",
+  authDomain:        "online-tracker-5dd94.firebaseapp.com",
+  databaseURL:       "https://online-tracker-5dd94-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "online-tracker-5dd94",
+  storageBucket:     "online-tracker-5dd94.firebasestorage.app",
+  messagingSenderId: "198479635003",
+  appId:             "1:198479635003:web:a0e4838fd4beed60bdb21e"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database();
+const STATE_REF = db.ref('onlineTracker/state');
+
+// ── EmailJS ───────────────────────────────────────────
+const EMAILJS_SERVICE_ID  = "PASTE_YOUR_SERVICE_ID";
+const EMAILJS_TEMPLATE_ID = "PASTE_YOUR_TEMPLATE_ID";
+const EMAILJS_PUBLIC_KEY  = "PASTE_YOUR_PUBLIC_KEY";
+const REPORT_EMAIL        = "petrpesekpesek@gmail.com";
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
+// ── Password ──────────────────────────────────────────
+const PASSWORD = "29944348";
+function checkPassword(){
+  if(document.getElementById('pw-input').value===PASSWORD){
+    document.getElementById('pw-overlay').classList.remove('open');
+  } else {
+    document.getElementById('pw-error').textContent='Incorrect password.';
+    document.getElementById('pw-input').value='';
+    document.getElementById('pw-input').focus();
+  }
+}
+
+// ── Constants ─────────────────────────────────────────
+const DAYS_ORDER=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+function parseDate(str){const[y,m,d]=str.split('-').map(Number);return new Date(y,m-1,d);}
+
+// ── State ─────────────────────────────────────────────
+let state={schedule:[],students:{},staff:{},sessions:[],openSlots:{}};
+let earningsPeriod='all';
+let listenerOn=false;
+
+// ── Firebase ops ──────────────────────────────────────
+async function loadState(){
+  try{
+    const snap=await STATE_REF.get();
+    if(snap.exists()) applySnapshot(snap.val());
+  } catch(e){ showStatus('⚠ Load error'); }
+  renderAll();
+  if(!listenerOn){
+    listenerOn=true;
+    STATE_REF.on('value',snap=>{
+      if(!snap.exists())return;
+      applySnapshot(snap.val());
+      renderAll();
+    });
+  }
+}
+
+function applySnapshot(d){
+  state.schedule = d.schedule||[];
+  state.students = d.students||{};
+  state.staff    = d.staff||{};
+  state.sessions = (d.sessions||[]).map(s=>{
+    // timezone fix: parse date as local
+    return s;
+  });
+  state.openSlots= d.openSlots||{};
+  state.settings = d.settings||{};
+}
+
+async function saveAll(){
+  try{
+    showStatus('Saving…');
+    await STATE_REF.set(state);
+    showStatus('Saved ✓');
+  } catch(e){ showStatus('Save failed ✗'); }
+}
+
+async function revertAll(){
+  if(!confirm('Discard unsaved changes?'))return;
+  try{
+    showStatus('Reverting…');
+    const snap=await STATE_REF.get();
+    if(snap.exists()) applySnapshot(snap.val());
+    renderAll();
+    showStatus('Reverted ✓');
+  } catch(e){ showStatus('Revert failed'); }
+}
+
+function showStatus(msg){
+  ['save-status','save-status-mobile'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.textContent=msg;setTimeout(()=>el.textContent='',2500);}
+  });
+}
+
+function renderAll(){renderClasses();renderStudents();renderStaff();renderSchedule();renderEarnings();}
+
+// ── Navigation ────────────────────────────────────────
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  else document.getElementById('nav-'+id).classList.add('active');
+  closeSidebar();
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+// ── Helpers ───────────────────────────────────────────
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const fmtMoney=n=>'¥'+Math.round(n).toLocaleString();
+
+function calcSession(sess){
+  const dur=parseFloat(sess.duration)||0;
+  const student=state.students[sess.studentId];
+  const teacher=state.staff[sess.teacherId];
+  const assistant=state.staff[sess.assistantId];
+  const revenue=student?dur*(parseFloat(student.rate)||0):0;
+  const cost=(teacher?dur*(parseFloat(teacher.rate)||0):0)+(assistant?dur*(parseFloat(assistant.rate)||0):0);
+  return{revenue,cost,profit:revenue-cost};
+}
+
+function todayStr(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ── Classes tab ───────────────────────────────────────
+function renderClasses(){
+  const root=document.getElementById('classes-root');
+  if(!root)return;
+  const sorted=[...state.schedule].sort((a,b)=>{
+    const di=DAYS_ORDER.indexOf(a.day)-DAYS_ORDER.indexOf(b.day);
+    return di!==0?di:a.time.localeCompare(b.time);
+  });
+  if(!sorted.length){
+    root.innerHTML=`<div style="text-align:center;padding:48px;color:var(--text3)">No slots yet — add some in the <strong>Schedule</strong> tab first.</div>`;
+    return;
+  }
+  const days=[...new Set(sorted.map(s=>s.day))];
+  root.innerHTML=days.map(day=>{
+    const slots=sorted.filter(s=>s.day===day);
+    return`<div class="day-group"><div class="day-label">${day}</div>${slots.map(renderSlotCard).join('')}</div>`;
+  }).join('');
+}
+
+function renderSlotCard(slot){
+  const student=state.students[slot.studentId];
+  const teacher=state.staff[slot.teacherId];
+  const assistant=state.staff[slot.assistantId];
+  const sessions=state.sessions.filter(s=>s.slotId===slot.id);
+  const isOpen=state.openSlots[slot.id];
+  const sortedSessions=[...sessions].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+
+  const metaInfo=[
+    student?`<span style="font-size:12px;background:var(--accent-bg);color:var(--accent-text);border-radius:20px;padding:2px 8px">${student.name}</span>`:'',
+    teacher?`<span style="font-size:12px;color:var(--text3)">${teacher.name}</span>`:'',
+  ].filter(Boolean).join(' ');
+
+  return`<div class="slot-card" id="slotcard-${slot.id}">
+    <div class="slot-header" onclick="toggleSlot('${slot.id}')">
+      <div class="slot-info">
+        <div class="slot-time">${slot.time}</div>
+        ${metaInfo||'<span style="font-size:11px;color:var(--text3)">No student assigned</span>'}
+      </div>
+      <div class="slot-meta">
+        <span class="session-count">${sessions.length} session${sessions.length!==1?'s':''}</span>
+        <span class="chevron ${isOpen?'open':''}">▼</span>
+      </div>
+    </div>
+    <div class="slot-body ${isOpen?'open':''}" id="slotbody-${slot.id}">
+      <button class="btn-add-session" onclick="addSession('${slot.id}')">+ Add session</button>
+      <div class="sessions-list" id="sesslist-${slot.id}">${sortedSessions.map(s=>renderSessionCard(s,slot)).join('')}</div>
+    </div>
+  </div>`;
+}
+
+function renderSessionCard(s,slot){
+  const student=state.students[s.studentId||slot.studentId];
+  const teacher=state.staff[s.teacherId||slot.teacherId];
+  const assistant=state.staff[s.assistantId||slot.assistantId];
+
+  const dur=parseFloat(s.duration)||0;
+  const rev=student&&dur?dur*(parseFloat(student.rate)||0):0;
+  const cost=((teacher&&dur?dur*(parseFloat(teacher.rate)||0):0)+(assistant&&dur?dur*(parseFloat(assistant.rate)||0):0));
+  const showPreview=dur>0&&student;
+
+  const studs=Object.entries(state.students);
+  const teachers=Object.entries(state.staff).filter(([,x])=>x.role==='teacher');
+  const assistants=Object.entries(state.staff).filter(([,x])=>x.role==='assistant');
+
+  const studOpts='<option value="">— Select —</option>'+studs.map(([id,x])=>`<option value="${id}"${(s.studentId||slot.studentId)===id?' selected':''}>${x.name} (¥${x.rate}/h)</option>`).join('');
+  const teachOpts='<option value="">— Select —</option>'+teachers.map(([id,x])=>`<option value="${id}"${(s.teacherId||slot.teacherId)===id?' selected':''}>${x.name} (¥${x.rate}/h)</option>`).join('');
+  const assistOpts='<option value="">— None —</option>'+assistants.map(([id,x])=>`<option value="${id}"${(s.assistantId||slot.assistantId)===id?' selected':''}>${x.name} (¥${x.rate}/h)</option>`).join('');
+
+  return`<div class="session-card" id="sess-${s.id}">
+    <div class="session-top">
+      <div style="min-width:140px">
+        <div class="field-label">Date</div>
+        <input type="date" class="field-input" value="${s.date||''}" onchange="updateSession('${s.id}','date',this.value)">
+      </div>
+      <div style="min-width:100px">
+        <div class="field-label">Duration (h)</div>
+        <input type="number" class="field-input" min="0.25" step="0.25" placeholder="1.5" value="${s.duration||''}" oninput="updateSession('${s.id}','duration',this.value);refreshRevPreview('${s.id}')">
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div class="field-label">Student</div>
+        <select class="field-select" onchange="updateSession('${s.id}','studentId',this.value);refreshRevPreview('${s.id}')">${studOpts}</select>
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div class="field-label">Teacher</div>
+        <select class="field-select" onchange="updateSession('${s.id}','teacherId',this.value);refreshRevPreview('${s.id}')">${teachOpts}</select>
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div class="field-label">Assistant</div>
+        <select class="field-select" onchange="updateSession('${s.id}','assistantId',this.value);refreshRevPreview('${s.id}')">${assistOpts}</select>
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div class="field-label">Notes</div>
+        <input type="text" class="field-input" placeholder="topic, comments…" value="${s.notes||''}" oninput="updateSession('${s.id}','notes',this.value)">
+      </div>
+    </div>
+    <div class="rev-preview" id="revpreview-${s.id}" style="${showPreview?'':'display:none'}">
+      Revenue: <span>${fmtMoney(rev)}</span> &nbsp;·&nbsp; Cost: <span>${fmtMoney(cost)}</span> &nbsp;·&nbsp; Profit: <span style="color:${(rev-cost)>=0?'var(--green)':'var(--red)'}">
+        ${fmtMoney(rev-cost)}</span>
+    </div>
+    <div class="session-footer">
+      <span style="font-size:12px;color:var(--text3)">${s.date||'No date set'}</span>
+      <button class="btn-ghost" onclick="deleteSession('${s.id}')">Delete session</button>
+    </div>
+  </div>`;
+}
+
+function toggleSlot(slotId){
+  state.openSlots[slotId]=!state.openSlots[slotId];
+  const body=document.getElementById('slotbody-'+slotId);
+  const card=document.getElementById('slotcard-'+slotId);
+  const chev=card&&card.querySelector('.chevron');
+  if(body)body.classList.toggle('open',state.openSlots[slotId]);
+  if(chev)chev.classList.toggle('open',state.openSlots[slotId]);
+}
+
+function addSession(slotId){
+  const slot=state.schedule.find(x=>x.id===slotId);
+  const s={
+    id:'sess_'+Date.now(),slotId,
+    date:todayStr(),
+    duration:'',
+    studentId:slot?slot.studentId:'',
+    teacherId:slot?slot.teacherId:'',
+    assistantId:slot?slot.assistantId:'',
+    notes:'',
+    createdAt:Date.now()
+  };
+  state.sessions.push(s);
+  const list=document.getElementById('sesslist-'+slotId);
+  if(list&&slot){
+    const div=document.createElement('div');
+    div.innerHTML=renderSessionCard(s,slot);
+    list.insertBefore(div.firstElementChild,list.firstChild);
+  }
+  // Update count badge
+  const card=document.getElementById('slotcard-'+slotId);
+  if(card){
+    const count=state.sessions.filter(x=>x.slotId===slotId).length;
+    const badge=card.querySelector('.session-count');
+    if(badge)badge.textContent=`${count} session${count!==1?'s':''}`;
+  }
+}
+
+function updateSession(sid,field,val){
+  const s=state.sessions.find(x=>x.id===sid);
+  if(s)s[field]=val;
+}
+
+function refreshRevPreview(sid){
+  const s=state.sessions.find(x=>x.id===sid);
+  if(!s)return;
+  const el=document.getElementById('revpreview-'+sid);
+  if(!el)return;
+  const dur=parseFloat(s.duration)||0;
+  const student=state.students[s.studentId];
+  const teacher=state.staff[s.teacherId];
+  const assistant=state.staff[s.assistantId];
+  const rev=student&&dur?dur*(parseFloat(student.rate)||0):0;
+  const cost=((teacher&&dur?dur*(parseFloat(teacher.rate)||0):0)+(assistant&&dur?dur*(parseFloat(assistant.rate)||0):0));
+  if(dur>0&&student){
+    el.style.display='flex';
+    el.innerHTML=`Revenue: <span>${fmtMoney(rev)}</span> &nbsp;·&nbsp; Cost: <span>${fmtMoney(cost)}</span> &nbsp;·&nbsp; Profit: <span style="color:${(rev-cost)>=0?'var(--green)':'var(--red)'}">${fmtMoney(rev-cost)}</span>`;
+  } else {
+    el.style.display='none';
+  }
+}
+
+function deleteSession(sid){
+  if(!confirm('Delete this session?'))return;
+  const s=state.sessions.find(x=>x.id===sid);
+  if(!s)return;
+  const slotId=s.slotId;
+  state.sessions=state.sessions.filter(x=>x.id!==sid);
+  const el=document.getElementById('sess-'+sid);
+  if(el)el.remove();
+  const card=document.getElementById('slotcard-'+slotId);
+  if(card){
+    const count=state.sessions.filter(x=>x.slotId===slotId).length;
+    const badge=card.querySelector('.session-count');
+    if(badge)badge.textContent=`${count} session${count!==1?'s':''}`;
+  }
+}
+
+// ── Schedule tab ──────────────────────────────────────
+function renderSchedule(){
+  const tbody=document.getElementById('schedule-body');
+  if(!tbody)return;
+  const sorted=[...state.schedule].sort((a,b)=>{
+    const di=DAYS_ORDER.indexOf(a.day)-DAYS_ORDER.indexOf(b.day);
+    return di!==0?di:a.time.localeCompare(b.time);
+  });
+  if(!sorted.length){
+    tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">No slots yet. Click "+ Add time slot" below.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=sorted.map(slot=>{
+    const student=state.students[slot.studentId];
+    const teacher=state.staff[slot.teacherId];
+    const assistant=state.staff[slot.assistantId];
+    return`<tr>
+      <td>${slot.day}</td>
+      <td style="font-family:'DM Mono',monospace">${slot.time}</td>
+      <td>${student?student.name:'<span style="color:var(--text3)">—</span>'}</td>
+      <td>${teacher?teacher.name:'<span style="color:var(--text3)">—</span>'}</td>
+      <td>${assistant?assistant.name:'<span style="color:var(--text3)">—</span>'}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="openSlotModal('${slot.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteSlot('${slot.id}')">Remove</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openSlotModal(slotId){
+  const s=slotId?state.schedule.find(x=>x.id===slotId):null;
+  const studs=Object.entries(state.students);
+  const teachers=Object.entries(state.staff).filter(([,x])=>x.role==='teacher');
+  const assistants=Object.entries(state.staff).filter(([,x])=>x.role==='assistant');
+  const studOpts='<option value="">— None —</option>'+studs.map(([id,x])=>`<option value="${id}"${s&&s.studentId===id?' selected':''}>${x.name}</option>`).join('');
+  const teachOpts='<option value="">— None —</option>'+teachers.map(([id,x])=>`<option value="${id}"${s&&s.teacherId===id?' selected':''}>${x.name}</option>`).join('');
+  const assistOpts='<option value="">— None —</option>'+assistants.map(([id,x])=>`<option value="${id}"${s&&s.assistantId===id?' selected':''}>${x.name}</option>`).join('');
+  document.getElementById('modal-box').innerHTML=`
+    <div class="modal-title">${s?'Edit':'Add'} time slot</div>
+    <div class="form-field"><label>Day</label><select id="m-day">${DAYS_ORDER.map(d=>`<option${s&&s.day===d?' selected':''}>${d}</option>`).join('')}</select></div>
+    <div class="form-field"><label>Start time (24h, e.g. 14:00)</label><input type="text" id="m-start" value="${s?s.time.split('–')[0]:''}" placeholder="14:00"></div>
+    <div class="form-field"><label>End time (24h, e.g. 15:30)</label><input type="text" id="m-end" value="${s?s.time.split('–')[1]:''}" placeholder="15:30"></div>
+    <div class="form-field"><label>Student (default for new sessions)</label><select id="m-student">${studOpts}</select></div>
+    <div class="form-field"><label>Teacher (default)</label><select id="m-teacher">${teachOpts}</select></div>
+    <div class="form-field"><label>Assistant (default, optional)</label><select id="m-assistant">${assistOpts}</select></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmSlot('${slotId||''}')">Save</button>
+    </div>`;
+  openModal();
+}
+
+function confirmSlot(slotId){
+  const day=document.getElementById('m-day').value;
+  const start=document.getElementById('m-start').value.trim();
+  const end=document.getElementById('m-end').value.trim();
+  const studentId=document.getElementById('m-student').value;
+  const teacherId=document.getElementById('m-teacher').value;
+  const assistantId=document.getElementById('m-assistant').value;
+  if(!start||!end){alert('Please fill in start and end time.');return;}
+  const time=start+'–'+end;
+  if(slotId){
+    const s=state.schedule.find(x=>x.id===slotId);
+    if(s){s.day=day;s.time=time;s.studentId=studentId;s.teacherId=teacherId;s.assistantId=assistantId;}
+  } else {
+    state.schedule.push({id:'slot_'+Date.now(),day,time,studentId,teacherId,assistantId});
+  }
+  closeModal();renderSchedule();renderClasses();
+}
+
+function deleteSlot(slotId){
+  if(!confirm('Remove this slot? Existing sessions in it will remain in the data.'))return;
+  state.schedule=state.schedule.filter(x=>x.id!==slotId);
+  renderSchedule();renderClasses();
+}
+
+// ── Students ──────────────────────────────────────────
+function renderStudents(){
+  const root=document.getElementById('students-root');
+  if(!root)return;
+  const list=Object.entries(state.students);
+  if(!list.length){root.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:8px">No students added yet.</div>`;return;}
+  root.innerHTML=list.map(([id,s])=>`
+    <div class="staff-card">
+      <div class="staff-avatar">${s.name.charAt(0).toUpperCase()}</div>
+      <div class="staff-info"><div class="staff-name">${s.name}</div><div class="staff-rate">¥${s.rate}/hr</div></div>
+      <div class="staff-actions">
+        <button class="btn btn-sm" onclick="openEditModal('student','${id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deletePerson('student','${id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+// ── Staff ─────────────────────────────────────────────
+function renderStaff(){
+  const teacherRoot=document.getElementById('teachers-root');
+  const assistantRoot=document.getElementById('assistants-root');
+  if(!teacherRoot||!assistantRoot)return;
+  const teachers=Object.entries(state.staff).filter(([,x])=>x.role==='teacher');
+  const assistants=Object.entries(state.staff).filter(([,x])=>x.role==='assistant');
+  teacherRoot.innerHTML=teachers.length
+    ?teachers.map(([id,s])=>`<div class="staff-card"><div class="staff-avatar">${s.name.charAt(0).toUpperCase()}</div><div class="staff-info"><div class="staff-name">${s.name}</div><div class="staff-rate">¥${s.rate}/hr</div></div><div class="staff-actions"><button class="btn btn-sm" onclick="openEditModal('teacher','${id}')">Edit</button><button class="btn btn-sm btn-danger" onclick="deletePerson('teacher','${id}')">✕</button></div></div>`).join('')
+    :`<div style="color:var(--text3);font-size:13px;padding:8px">No teachers yet.</div>`;
+  assistantRoot.innerHTML=assistants.length
+    ?assistants.map(([id,s])=>`<div class="staff-card"><div class="staff-avatar">${s.name.charAt(0).toUpperCase()}</div><div class="staff-info"><div class="staff-name">${s.name}</div><div class="staff-rate">¥${s.rate}/hr</div></div><div class="staff-actions"><button class="btn btn-sm" onclick="openEditModal('assistant','${id}')">Edit</button><button class="btn btn-sm btn-danger" onclick="deletePerson('assistant','${id}')">✕</button></div></div>`).join('')
+    :`<div style="color:var(--text3);font-size:13px;padding:8px">No assistants yet.</div>`;
+}
+
+function openAddModal(type){
+  const isStudent=type==='student';
+  document.getElementById('modal-box').innerHTML=`
+    <div class="modal-title">Add ${type}</div>
+    <div class="form-field"><label>Name</label><input type="text" id="m-name" placeholder="Full name"></div>
+    <div class="form-field"><label>Hourly Rate (¥)</label><input type="number" id="m-rate" min="0" step="1" placeholder="0"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddPerson('${type}')">Add</button>
+    </div>`;
+  openModal();
+}
+
+function confirmAddPerson(type){
+  const name=document.getElementById('m-name').value.trim();
+  const rate=parseFloat(document.getElementById('m-rate').value)||0;
+  if(!name)return;
+  const id=uid();
+  if(type==='student') state.students[id]={name,rate};
+  else state.staff[id]={name,rate,role:type};
+  closeModal();renderStudents();renderStaff();renderSchedule();renderClasses();
+}
+
+function openEditModal(type,id){
+  const person=type==='student'?state.students[id]:state.staff[id];
+  if(!person)return;
+  document.getElementById('modal-box').innerHTML=`
+    <div class="modal-title">Edit ${type}</div>
+    <div class="form-field"><label>Name</label><input type="text" id="m-name" value="${person.name}"></div>
+    <div class="form-field"><label>Hourly Rate (¥)</label><input type="number" id="m-rate" value="${person.rate||0}" min="0" step="1"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmEditPerson('${type}','${id}')">Save</button>
+    </div>`;
+  openModal();
+}
+
+function confirmEditPerson(type,id){
+  const name=document.getElementById('m-name').value.trim();
+  const rate=parseFloat(document.getElementById('m-rate').value)||0;
+  if(!name)return;
+  if(type==='student')state.students[id]={...state.students[id],name,rate};
+  else state.staff[id]={...state.staff[id],name,rate};
+  closeModal();renderStudents();renderStaff();renderSchedule();renderClasses();renderEarnings();
+}
+
+function deletePerson(type,id){
+  if(!confirm(`Remove this ${type}?`))return;
+  if(type==='student')delete state.students[id];
+  else delete state.staff[id];
+  renderStudents();renderStaff();renderSchedule();renderClasses();renderEarnings();
+}
+
+// ── Earnings ──────────────────────────────────────────
+function setEarningsPeriod(p,btn){
+  earningsPeriod=p;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderEarnings();
+}
+
+function renderEarnings(){
+  const now=new Date();
+  const thisM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const lm=new Date(now.getFullYear(),now.getMonth()-1,1);
+  const lastM=`${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}`;
+
+  const sessions=state.sessions.filter(s=>{
+    if(!s.date||!s.duration)return false;
+    if(earningsPeriod==='thisMonth')return s.date.startsWith(thisM);
+    if(earningsPeriod==='lastMonth')return s.date.startsWith(lastM);
+    return true;
+  }).sort((a,b)=>b.date.localeCompare(a.date));
+
+  let totalRev=0,totalCost=0;
+  sessions.forEach(s=>{const c=calcSession(s);totalRev+=c.revenue;totalCost+=c.cost;});
+  const profit=totalRev-totalCost;
+
+  document.getElementById('earn-revenue').textContent=fmtMoney(totalRev);
+  document.getElementById('earn-costs').textContent=fmtMoney(totalCost);
+  document.getElementById('earn-profit').textContent=fmtMoney(profit);
+  document.getElementById('earn-profit').className='metric-value '+(profit>=0?'green':'red');
+
+  const tbody=document.getElementById('earnings-body');
+  if(!tbody)return;
+  if(!sessions.length){
+    tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">No sessions in this period</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=sessions.map(s=>{
+    const student=state.students[s.studentId];
+    const teacher=state.staff[s.teacherId];
+    const{revenue,cost,profit:p}=calcSession(s);
+    const slot=state.schedule.find(x=>x.id===s.slotId);
+    return`<tr>
+      <td>${s.date}</td>
+      <td>${student?student.name:'—'}</td>
+      <td>${teacher?teacher.name:'—'}</td>
+      <td>${s.duration?s.duration+'h':'—'}</td>
+      <td>${fmtMoney(revenue)}</td>
+      <td style="color:var(--red)">${fmtMoney(cost)}</td>
+      <td style="color:${p>=0?'var(--green)':'var(--red)'};font-weight:600">${fmtMoney(p)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Modal helpers ─────────────────────────────────────
+function openModal(){document.getElementById('modal-overlay').classList.add('open');}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+
+// ── Init ──────────────────────────────────────────────
+loadState();
+setTimeout(()=>document.getElementById('pw-input').focus(),100);
+</script>
+</body>
+</html>
