@@ -1,0 +1,21 @@
+name: FEK Online Daily Report
+
+on:
+  schedule:
+    - cron: '0 23 * * *'   # 07:00 CST = 23:00 UTC previous day
+  workflow_dispatch:
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install firebase-admin nodemailer
+      - run: node send-report-online.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT_ONLINE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ONLINE }}
+          GMAIL_USER:         ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
