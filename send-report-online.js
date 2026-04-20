@@ -123,9 +123,7 @@ function renderDailyBody(sessions, students, staff) {
   if (!sessions.length) return '<p style="color:#888;font-size:14px;">No sessions recorded.</p>';
   return sessions.sort((a, b) => (a.createdAt||0) - (b.createdAt||0)).map(s => {
     const { dur, revenue, cost, profit } = calcSession(s, students, staff);
-    const student = students[s.studentId];
-    const teacher = staff[s.teacherId];
-    const asst    = staff[s.assistantId];
+    const student = students[s.studentId]; const teacher = staff[s.teacherId]; const asst = staff[s.assistantId];
     const profColor = profit >= 0 ? '#1a7a4a' : '#c0392b';
     return '<div style="background:#f5f5f5;border-radius:10px;padding:14px 18px;margin-bottom:12px;">' +
       '<div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:8px;">' + DAY_NAMES[new Date(s.date+'T00:00:00Z').getUTCDay()] + ' &middot; ' + s.date + '</div>' +
@@ -222,8 +220,15 @@ async function main() {
   const dow       = dayOfWeek(now);
   console.log('Today (CST): ' + today + ' | Yesterday: ' + yesterday + ' | DOW: ' + dow);
 
-  // TEST MODE: guard bypassed
-  console.log('TEST MODE: skipping duplicate guard');
+  // Duplicate-send guard
+  let meta = null;
+  try { meta = await fetchPath('onlineTracker/reportMeta'); } catch(e) {}
+  const lastSent = meta && meta.lastDailyReport;
+  if (lastSent === yesterday) {
+    console.log('Already sent for ' + yesterday + ' - skipping.');
+    await admin.app().delete();
+    process.exit(0);
+  }
 
   const { sessions, students, staff } = await loadState();
 
@@ -246,40 +251,46 @@ async function main() {
       renderDailyBody(dailySessions, students, staff)),
     backupAttachment
   );
+  await writePath('onlineTracker/reportMeta/lastDailyReport', yesterday);
+  console.log('Marked lastDailyReport = ' + yesterday);
 
-  // WEEKLY (forced for testing)
-  const start = addDays(now, -7);
-  const weekDates = Array.from({ length: 7 }, (_, i) => toDateStr(addDays(start, i)));
-  const weeklySessions = sessions.filter(s => weekDates.includes(s.date));
-  const weeklyTot      = totalFinancials(weeklySessions, students, staff);
-  await sendEmail(
-    'FEK Online Weekly Report - w/e ' + yesterday,
-    emailShell('WEEKLY', '#16a34a',
-      toDateStr(start) + ' to ' + yesterday,
-      weeklySessions.length + ' session' + (weeklySessions.length !== 1 ? 's' : ''),
-      fmtY(weeklyTot.profit),
-      renderWeeklyBody(weeklySessions, students, staff))
-  );
+  // WEEKLY (every Monday)
+  if (dow === 1) {
+    const start = addDays(now, -7);
+    const weekDates = Array.from({ length: 7 }, (_, i) => toDateStr(addDays(start, i)));
+    const weeklySessions = sessions.filter(s => weekDates.includes(s.date));
+    const weeklyTot      = totalFinancials(weeklySessions, students, staff);
+    await sendEmail(
+      'FEK Online Weekly Report - w/e ' + yesterday,
+      emailShell('WEEKLY', '#16a34a',
+        toDateStr(start) + ' to ' + yesterday,
+        weeklySessions.length + ' session' + (weeklySessions.length !== 1 ? 's' : ''),
+        fmtY(weeklyTot.profit),
+        renderWeeklyBody(weeklySessions, students, staff))
+    );
+  }
 
-  // MONTHLY (forced for testing)
-  const firstOfThis = new Date(today + 'T00:00:00Z');
-  const lastOfPrev  = addDays(firstOfThis, -1);
-  const firstOfPrev = new Date(lastOfPrev); firstOfPrev.setUTCDate(1);
-  const monthDates  = [];
-  let cur = new Date(firstOfPrev);
-  while (toDateStr(cur) <= toDateStr(lastOfPrev)) { monthDates.push(toDateStr(cur)); cur = addDays(cur, 1); }
-  const monthlySessions = sessions.filter(s => monthDates.includes(s.date));
-  const monthlyTot      = totalFinancials(monthlySessions, students, staff);
-  const label           = monthName(firstOfPrev) + ' ' + firstOfPrev.getUTCFullYear();
-  await sendEmail(
-    'FEK Online Monthly Report - ' + label,
-    emailShell('MONTHLY', '#9333ea', label,
-      monthlySessions.length + ' session' + (monthlySessions.length !== 1 ? 's' : ''),
-      fmtY(monthlyTot.profit),
-      renderMonthlyBody(monthlySessions, students, staff))
-  );
+  // MONTHLY (every 1st)
+  if (now.getUTCDate() === 1) {
+    const firstOfThis = new Date(today + 'T00:00:00Z');
+    const lastOfPrev  = addDays(firstOfThis, -1);
+    const firstOfPrev = new Date(lastOfPrev); firstOfPrev.setUTCDate(1);
+    const monthDates  = [];
+    let cur = new Date(firstOfPrev);
+    while (toDateStr(cur) <= toDateStr(lastOfPrev)) { monthDates.push(toDateStr(cur)); cur = addDays(cur, 1); }
+    const monthlySessions = sessions.filter(s => monthDates.includes(s.date));
+    const monthlyTot      = totalFinancials(monthlySessions, students, staff);
+    const label           = monthName(firstOfPrev) + ' ' + firstOfPrev.getUTCFullYear();
+    await sendEmail(
+      'FEK Online Monthly Report - ' + label,
+      emailShell('MONTHLY', '#9333ea', label,
+        monthlySessions.length + ' session' + (monthlySessions.length !== 1 ? 's' : ''),
+        fmtY(monthlyTot.profit),
+        renderMonthlyBody(monthlySessions, students, staff))
+    );
+  }
 
-  console.log('All done - TEST MODE');
+  console.log('All done');
   await admin.app().delete();
   process.exit(0);
 }
