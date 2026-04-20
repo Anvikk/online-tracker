@@ -372,7 +372,7 @@ async function main() {
   }
 
   // ── MONTHLY (every 1st) ────────────────────────────────────────────────────
-  if (now.getUTCDate() === 1) {
+  if (true) {
     const firstOfThis = new Date(today + 'T00:00:00Z');
     const lastOfPrev  = addDays(firstOfThis, -1);
     const firstOfPrev = new Date(lastOfPrev); firstOfPrev.setUTCDate(1);
